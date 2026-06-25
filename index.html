@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>200 by 정우쌤</title>
+    <link rel="icon" type="image/png" href="./assets/favicon.png">
+    <meta property="og:title" content="200 by 정우쌤 - 경기도 비평준화 고입 내신 산출기">
+    <meta property="og:description" content="경기도 비평준화 고등학교 입시 내신 점수를 간편하게 계산해보세요.">
+    <meta property="og:image" content="https://jstd-jeostdu.github.io/200/assets/og-image.png">
+    <meta property="og:url" content="https://jstd-jeostdu.github.io/200/">
+    <meta property="og:type" content="website">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
@@ -1657,25 +1663,4 @@
 
   function scrollBottom() {
     const m = document.getElementById('sdbot-messages');
-    setTimeout(() => { m.scrollTop = m.scrollHeight; }, 50);
-  }
-
-  /* ── 알림 말풍선 ── */
-  function showBubble() {
-    const b = document.getElementById('sdbot-bubble');
-    b.classList.add('show');
-    bubbleTimer = setTimeout(hideBubble, 4000);
-  }
-  function hideBubble() {
-    clearTimeout(bubbleTimer);
-    document.getElementById('sdbot-bubble').classList.remove('show');
-  }
-
-  /* 3초 후 말풍선 자동 표시 */
-  setTimeout(showBubble, 3000);
-})();
-</script>
-<!-- ===================== /SD정우쌤 챗봇 ===================== -->
-
-</body>
-</html>
+    setTimeout(() => { m.scrollTop = m.scrol
