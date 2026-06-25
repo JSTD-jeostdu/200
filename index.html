@@ -1663,4 +1663,25 @@
 
   function scrollBottom() {
     const m = document.getElementById('sdbot-messages');
-    setTimeout(() => { m.scrollTop = m.scrol
+    setTimeout(() => { m.scrollTop = m.scrollHeight; }, 50);
+  }
+
+  /* ── 알림 말풍선 ── */
+  function showBubble() {
+    const b = document.getElementById('sdbot-bubble');
+    b.classList.add('show');
+    bubbleTimer = setTimeout(hideBubble, 4000);
+  }
+  function hideBubble() {
+    clearTimeout(bubbleTimer);
+    document.getElementById('sdbot-bubble').classList.remove('show');
+  }
+
+  /* 3초 후 말풍선 자동 표시 */
+  setTimeout(showBubble, 3000);
+})();
+</script>
+<!-- ===================== /SD정우쌤 챗봇 ===================== -->
+
+</body>
+</html>
