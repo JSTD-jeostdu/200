@@ -1229,5 +1229,366 @@
             });
         });
     </script>
+
+<!-- ===================== SD정우쌤 챗봇 ===================== -->
+<style>
+  /* ── 플로팅 버튼 ── */
+  #sdbot-btn {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    width: 80px; height: 80px;
+    cursor: pointer; border: none; background: transparent; padding: 0;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,0.3));
+    transition: transform 0.15s;
+  }
+  #sdbot-btn:hover { transform: scale(1.08); }
+  #sdbot-btn:active { transform: scale(0.95); }
+
+  /* ── 스프라이트 ── */
+  .sdbot-sprite {
+    width: 80px; height: 80px;
+    background-image: url('./assets/chatbot.png');
+    background-size: 320px 160px;   /* 500→320 scale (×0.64) */
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+  }
+  /* 포즈 클래스 */
+  .sdbot-pose-normal  { background-position:   0px    0px; }
+  .sdbot-pose-think   { background-position: -80px    0px; }
+  .sdbot-pose-laptop  { background-position:-160px    0px; }
+  .sdbot-pose-nervous { background-position:-240px    0px; }
+  .sdbot-pose-happy   { background-position:   0px  -80px; }
+  .sdbot-pose-wow     { background-position: -80px  -80px; }
+  .sdbot-pose-sleep   { background-position:-160px  -80px; }
+  .sdbot-pose-yawn    { background-position:-240px  -80px; }
+
+  /* ── 채팅창 ── */
+  #sdbot-window {
+    position: fixed; bottom: 116px; right: 24px; z-index: 9998;
+    width: 320px; max-height: 480px;
+    background: #fff; border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    transform: scale(0.85) translateY(20px);
+    transform-origin: bottom right;
+    opacity: 0; pointer-events: none;
+    transition: transform 0.22s cubic-bezier(.34,1.56,.64,1), opacity 0.18s;
+  }
+  #sdbot-window.open {
+    transform: scale(1) translateY(0);
+    opacity: 1; pointer-events: all;
+  }
+
+  /* 헤더 */
+  #sdbot-header {
+    background: linear-gradient(135deg,#4f46e5,#7c3aed);
+    padding: 12px 16px; display: flex; align-items: center; gap: 10px;
+    color: #fff; flex-shrink: 0;
+  }
+  #sdbot-header .sdbot-sprite { width:48px; height:48px; background-size:192px 96px; }
+  #sdbot-header-pose-normal  { background-position:   0px   0px; }
+  #sdbot-header-pose-think   { background-position: -48px   0px; }
+  #sdbot-header-pose-laptop  { background-position:-96px    0px; }
+  #sdbot-header-pose-nervous { background-position:-144px   0px; }
+  #sdbot-header-pose-happy   { background-position:   0px  -48px; }
+  #sdbot-header-pose-wow     { background-position: -48px  -48px; }
+  #sdbot-header-pose-sleep   { background-position: -96px  -48px; }
+  #sdbot-header-pose-yawn    { background-position:-144px  -48px; }
+
+  #sdbot-header-info { flex:1; }
+  #sdbot-header-info .name { font-weight:700; font-size:14px; }
+  #sdbot-header-info .sub  { font-size:11px; opacity:.8; }
+  #sdbot-close {
+    background:none; border:none; color:#fff; font-size:18px;
+    cursor:pointer; line-height:1; padding:4px; opacity:.8;
+  }
+  #sdbot-close:hover { opacity:1; }
+
+  /* 메시지 영역 */
+  #sdbot-messages {
+    flex:1; overflow-y:auto; padding:14px 12px;
+    display:flex; flex-direction:column; gap:10px;
+    scroll-behavior: smooth;
+  }
+  .sdbot-msg {
+    max-width: 85%; font-size:13px; line-height:1.5;
+    border-radius:12px; padding:9px 13px;
+    animation: sdbot-fadein 0.2s ease;
+  }
+  @keyframes sdbot-fadein { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+  .sdbot-msg.bot {
+    background:#f3f4f6; color:#1f2937; align-self:flex-start;
+    border-bottom-left-radius:3px;
+  }
+  .sdbot-msg.user {
+    background:linear-gradient(135deg,#4f46e5,#7c3aed);
+    color:#fff; align-self:flex-end;
+    border-bottom-right-radius:3px;
+  }
+
+  /* 빠른 답변 버튼 */
+  #sdbot-quickreplies {
+    padding:8px 12px 12px; display:flex; flex-wrap:wrap; gap:6px;
+    flex-shrink:0; border-top:1px solid #f0f0f0;
+    max-height:180px; overflow-y:auto;
+  }
+  .sdbot-qr {
+    background:#ede9fe; color:#4f46e5; border:none;
+    border-radius:20px; padding:6px 12px; font-size:12px;
+    cursor:pointer; transition:background 0.15s;
+    text-align:left; line-height:1.4;
+  }
+  .sdbot-qr:hover { background:#ddd6fe; }
+
+  /* 말풍선 알림 (챗창 닫혀있을 때) */
+  #sdbot-bubble {
+    position:fixed; bottom:112px; right:24px; z-index:9997;
+    background:#4f46e5; color:#fff; border-radius:12px 12px 4px 12px;
+    padding:8px 14px; font-size:12px; font-weight:600;
+    box-shadow:0 4px 14px rgba(79,70,229,.4);
+    opacity:0; pointer-events:none;
+    transition:opacity 0.3s;
+    white-space:nowrap;
+  }
+  #sdbot-bubble.show { opacity:1; }
+</style>
+
+<!-- 플로팅 버튼 -->
+<button id="sdbot-btn" title="SD정우쌤과 대화하기" onclick="sdbotToggle()">
+  <div class="sdbot-sprite sdbot-pose-normal" id="sdbot-btn-sprite"></div>
+</button>
+
+<!-- 알림 말풍선 -->
+<div id="sdbot-bubble">도움이 필요하세요? 💬</div>
+
+<!-- 채팅창 -->
+<div id="sdbot-window">
+  <div id="sdbot-header">
+    <div class="sdbot-sprite sdbot-pose-happy" id="sdbot-header-sprite"
+         style="background-size:192px 96px;"></div>
+    <div id="sdbot-header-info">
+      <div class="name">SD정우쌤</div>
+      <div class="sub">경기도 비평준화 입시 도우미</div>
+    </div>
+    <button id="sdbot-close" onclick="sdbotToggle()" title="닫기">✕</button>
+  </div>
+  <div id="sdbot-messages"></div>
+  <div id="sdbot-quickreplies"></div>
+</div>
+
+<script>
+(function(){
+  /* ── 스프라이트 포즈 맵 ── */
+  const POSES = {
+    normal : 'sdbot-pose-normal',
+    think  : 'sdbot-pose-think',
+    laptop : 'sdbot-pose-laptop',
+    nervous: 'sdbot-pose-nervous',
+    happy  : 'sdbot-pose-happy',
+    wow    : 'sdbot-pose-wow',
+    sleep  : 'sdbot-pose-sleep',
+    yawn   : 'sdbot-pose-yawn',
+  };
+
+  /* ── 헤더 스프라이트 포즈 맵 (48px 기준) ── */
+  const HEADER_POSES = {
+    normal :  '0px 0px',
+    think  : '-48px 0px',
+    laptop : '-96px 0px',
+    nervous: '-144px 0px',
+    happy  : '0px -48px',
+    wow    : '-48px -48px',
+    sleep  : '-96px -48px',
+    yawn   : '-144px -48px',
+  };
+
+  function setPose(pose) {
+    const btn = document.getElementById('sdbot-btn-sprite');
+    const hdr = document.getElementById('sdbot-header-sprite');
+    // btn
+    btn.className = 'sdbot-sprite ' + (POSES[pose] || POSES.normal);
+    // header
+    hdr.style.backgroundPosition = HEADER_POSES[pose] || HEADER_POSES.normal;
+  }
+
+  /* ── 대화 데이터 ── */
+  const MAIN_MENU = [
+    { label:'📱 이 앱은 어떻게 사용하나요?',    id:'how' },
+    { label:'🎓 대상 학년 설정은?',             id:'year' },
+    { label:'📝 점수 입력 방법은?',             id:'score' },
+    { label:'🏅 성취도가 뭔가요?',              id:'grade' },
+    { label:'📊 환산 최종 점수가 뭔가요?',       id:'total' },
+    { label:'🎨 체육·예술 교과 입력은?',        id:'art' },
+    { label:'🏫 비평준화 고등학교란?',           id:'noneq' },
+    { label:'📅 어떤 성적이 반영되나요?',        id:'period' },
+    { label:'💯 몇 점이면 좋은 성적인가요?',     id:'cutoff' },
+    { label:'😴 잠깐 쉬고 싶어요',              id:'sleep' },
+  ];
+
+  const QA = {
+    how: {
+      pose: 'laptop',
+      text: '간단해요! 😊\n\n① 오른쪽 위에서 현재 학년도를 선택하고\n② 학기별로 과목의 원점수를 입력하면\n③ 자동으로 내신 환산 점수를 계산해드려요!\n\n성취도(A~E)는 원점수를 입력하는 순간 자동으로 채워진답니다.',
+    },
+    year: {
+      pose: 'think',
+      text: '화면 오른쪽 위 \'대상 학년도\'에서 선택하면 돼요!\n\n• 현재 중3(2026년) → 2027학년도\n• 현재 중2(2026년) → 2028학년도\n\n학년도에 따라 반영되는 학기가 달라지니 꼭 확인하세요 📌',
+    },
+    score: {
+      pose: 'laptop',
+      text: '각 학기 섹션의 원점수 칸에 숫자를 입력하면 돼요!\n\n⌨️ ↓키나 Enter를 누르면 다음 칸으로 빠르게 이동 가능해요.\n\n점수를 모르는 학기는 상단 토글로 \'환산 최종 점수 직접 입력\' 모드로 바꾸면 편하답니다 👍',
+    },
+    grade: {
+      pose: 'normal',
+      text: '성취도는 원점수를 기준으로 자동 계산돼요!\n\n🅐 90점 이상 → A\n🅑 80~89점 → B\n🅒 70~79점 → C\n🅓 60~69점 → D\n🅔 59점 이하 → E\n\n경기도교육청 성취평가제 기준이에요 📚',
+    },
+    total: {
+      pose: 'wow',
+      text: '학기별 과목 점수를 수업 단위(시수)를 고려해 가중 평균 낸 점수예요!\n\n담임 선생님께 \'학기별 일반교과 환산 점수\'를 여쭤보시면 바로 알 수 있어요. 통지표에 나와 있는 경우도 있답니다 📋',
+    },
+    art: {
+      pose: 'think',
+      text: '체육·예술 교과는 두 가지 방법으로 입력할 수 있어요!\n\n① 성취도별 과목 수 직접 입력\n② 환산 최종 점수 직접 입력 (기본값)\n\n담임 선생님께 체예 환산 점수를 여쭤보시거나, 학생부 공시 점수를 활용하세요 🎨',
+    },
+    noneq: {
+      pose: 'nervous',
+      text: '경기도에는 두 가지 고교 배정 방식이 있어요!\n\n✅ 평준화 지역: 추첨·학군으로 배정\n✅ 비평준화 지역: 내신 성적으로 학교 선택 지원\n\n수원, 군포·의왕, 평택 등이 비평준화 지역이에요. 이 앱은 비평준화 내신 점수 계산을 도와드려요 🏫',
+    },
+    period: {
+      pose: 'think',
+      text: '학년도별로 반영 학기가 달라요!\n\n📌 2027학년도(현 중3):\n중1 1학기 ~ 중2 2학기 (4개 학기)\n\n📌 2028학년도(현 중2):\n중1 1학기 ~ 중3 1학기 (5개 학기)\n\n중3 성적은 2027학년도 기준으로는 반영되지 않아요 📅',
+    },
+    cutoff: {
+      pose: 'happy',
+      text: '학교마다 커트라인이 달라서 딱 잘라 말하기 어렵지만...\n\n💡 지원 학교의 최근 3~5년 입시 결과를 참고하는 게 좋아요!\n\n경기도교육청 학교알리미 사이트나 선생님께 문의해보세요. 이 앱으로 먼저 내 점수를 확인해보는 게 첫 번째 단계랍니다 💪',
+    },
+    sleep: {
+      pose: 'sleep',
+      text: '열심히 공부하느라 수고했어요... 잠깐 쉬어도 괜찮아요 😴\nzzz...',
+    },
+  };
+
+  let isOpen = false;
+  let bubbleTimer = null;
+
+  /* ── 채팅창 열고 닫기 ── */
+  window.sdbotToggle = function() {
+    isOpen = !isOpen;
+    document.getElementById('sdbot-window').classList.toggle('open', isOpen);
+    hideBubble();
+    if (isOpen) {
+      const msgs = document.getElementById('sdbot-messages');
+      if (msgs.children.length === 0) sdbotGreet();
+    } else {
+      setPose('normal');
+    }
+  };
+
+  /* ── 인사말 ── */
+  function sdbotGreet() {
+    setPose('happy');
+    addBotMsg('안녕하세요! 저는 SD정우쌤이에요 😊\n경기도 비평준화 고입 내신 계산을 도와드릴게요!\n무엇이 궁금하세요?');
+    setTimeout(() => showMenu(), 400);
+  }
+
+  /* ── 메인 메뉴 표시 ── */
+  function showMenu() {
+    setPose('normal');
+    setQuickReplies(MAIN_MENU.map(m => ({ label: m.label, action: () => handleQA(m.id) }))
+      .concat([{ label:'👋 대화 초기화', action: resetChat }]));
+  }
+
+  /* ── QA 처리 ── */
+  function handleQA(id) {
+    const qa = QA[id];
+    if (!qa) return;
+    const label = MAIN_MENU.find(m => m.id === id)?.label || '';
+    addUserMsg(label);
+    clearQuickReplies();
+    setTimeout(() => {
+      setPose(qa.pose);
+      addBotMsg(qa.text);
+      setTimeout(() => {
+        setQuickReplies([
+          { label:'🏠 다른 질문 보기', action: showMenu },
+          { label:'👍 도움이 됐어요!', action: thankYou },
+        ]);
+      }, 300);
+    }, 350);
+  }
+
+  /* ── 감사 응답 ── */
+  function thankYou() {
+    addUserMsg('👍 도움이 됐어요!');
+    clearQuickReplies();
+    setTimeout(() => {
+      setPose('happy');
+      addBotMsg('도움이 됐다니 다행이에요! 😊\n궁금한 게 더 있으면 언제든지 물어보세요!');
+      setTimeout(showMenu, 400);
+    }, 350);
+  }
+
+  /* ── 채팅 초기화 ── */
+  function resetChat() {
+    document.getElementById('sdbot-messages').innerHTML = '';
+    clearQuickReplies();
+    sdbotGreet();
+  }
+
+  /* ── 메시지 추가 ── */
+  function addBotMsg(text) {
+    const el = document.createElement('div');
+    el.className = 'sdbot-msg bot';
+    el.textContent = text;
+    el.style.whiteSpace = 'pre-line';
+    document.getElementById('sdbot-messages').appendChild(el);
+    scrollBottom();
+  }
+  function addUserMsg(text) {
+    const el = document.createElement('div');
+    el.className = 'sdbot-msg user';
+    el.textContent = text;
+    document.getElementById('sdbot-messages').appendChild(el);
+    scrollBottom();
+  }
+
+  /* ── 빠른 답변 설정 ── */
+  function setQuickReplies(items) {
+    const c = document.getElementById('sdbot-quickreplies');
+    c.innerHTML = '';
+    items.forEach(item => {
+      const btn = document.createElement('button');
+      btn.className = 'sdbot-qr';
+      btn.textContent = item.label;
+      btn.onclick = item.action;
+      c.appendChild(btn);
+    });
+  }
+  function clearQuickReplies() {
+    document.getElementById('sdbot-quickreplies').innerHTML = '';
+  }
+
+  function scrollBottom() {
+    const m = document.getElementById('sdbot-messages');
+    setTimeout(() => { m.scrollTop = m.scrollHeight; }, 50);
+  }
+
+  /* ── 알림 말풍선 ── */
+  function showBubble() {
+    const b = document.getElementById('sdbot-bubble');
+    b.classList.add('show');
+    bubbleTimer = setTimeout(hideBubble, 4000);
+  }
+  function hideBubble() {
+    clearTimeout(bubbleTimer);
+    document.getElementById('sdbot-bubble').classList.remove('show');
+  }
+
+  /* 3초 후 말풍선 자동 표시 */
+  setTimeout(showBubble, 3000);
+})();
+</script>
+<!-- ===================== /SD정우쌤 챗봇 ===================== -->
+
 </body>
 </html>
