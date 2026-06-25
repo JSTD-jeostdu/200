@@ -467,6 +467,7 @@
 
         const directMode = {};      // 학기별 직접 입력 모드
         let artDirectMode = true;   // 체육·예술 직접 입력 (기본값)
+        let g2CombinedMode  = true;    // 2학년 전체 직접 입력 (기본값)
 
         const semesterMeta = {
             g1_2: { title: "1학년 2학기", base: 4,  gradeMultiplier: 0.8, scoreMultiplier: 0.04, max: 12 },
@@ -566,10 +567,39 @@
                     freeCard,
                     semCard("g1_2"),
                 '</div>',
-                '<div class="grid grid-cols-1 xl:grid-cols-2 gap-5">',
+                /* ── 2학년 래퍼 시작 ── */
+                '<div id="g2-section-wrapper">',
+                  /* 토글 헤더 */
+                  '<div class="rounded-2xl border border-violet-200 bg-violet-50/60 shadow-sm p-4 mb-4 flex flex-col sm:flex-row sm:items-center gap-3">',
+                    '<div class="font-bold text-slate-800 text-sm">📚 2학년 입력 방식 선택</div>',
+                    '<div class="flex flex-wrap gap-2">',
+                      '<button type="button" id="g2-btn-combined" onclick="toggleG2Mode(true)"  class="px-3 py-2 rounded-xl text-sm font-semibold shadow bg-violet-600 text-white">✏️ 전체 직접 입력 (48점)</button>',
+                      '<button type="button" id="g2-btn-separate" onclick="toggleG2Mode(false)" class="px-3 py-2 rounded-xl text-sm font-semibold shadow bg-slate-100 text-slate-600 hover:bg-slate-200">📋 학기별 입력</button>',
+                    '</div>',
+                  '</div>',
+                  /* 전체 직접 입력 섹션 */
+                  '<div id="g2-combined-section" class="rounded-2xl border border-violet-200 bg-violet-50/80 shadow-sm overflow-hidden mb-4">',
+                    '<div class="bg-gradient-to-r from-violet-50 to-white border-b border-violet-100 p-4">',
+                      '<h3 class="font-bold text-slate-900">2학년 (1·2학기 통합)</h3>',
+                      '<p class="text-xs text-slate-500 mt-1">2학년 전체 환산 최종 점수를 입력하세요.</p>',
+                    '</div>',
+                    '<div class="p-5">',
+                      '<p class="text-sm text-violet-700 mb-3 font-medium">2학년 전체 환산 최종 점수 <span class="font-bold">(0 ~ 48점)</span></p>',
+                      '<div class="flex items-center gap-3">',
+                        '<input type="number" id="g2-combined-score" min="0" max="48" step="0.001" placeholder="0.000"',
+                        '  class="w-40 p-3 border-2 border-violet-300 rounded-xl text-center font-bold text-2xl focus:ring-2 focus:ring-violet-400 focus:outline-none bg-white"',
+                        '  oninput="refreshIfCalculated();">',
+                        '<span class="text-slate-500 font-semibold">/ 48점</span>',
+                      '</div>',
+                    '</div>',
+                  '</div>',
+                  /* 학기별 입력 섹션 */
+                  '<div id="g2-separate-section" style="display:none" class="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-4">',
                     semCard("g2_1"),
                     semCard("g2_2"),
+                  '</div>',
                 '</div>',
+                /* ── 2학년 래퍼 끝 ── */
                 '<div class="grid grid-cols-1 xl:grid-cols-2 gap-5">',
                     semCard("g3_1"),
                     semCard("g3_2"),
@@ -648,6 +678,26 @@
                 count++;
             });
             return { count, avgGrade: count > 0 ? sumGrade / count : 0, avgScore: count > 0 ? sumScore / count : 0 };
+        }
+
+        function toggleG2Mode(combined) {
+            g2CombinedMode = combined;
+            const combinedSection = document.getElementById('g2-combined-section');
+            const separateSection = document.getElementById('g2-separate-section');
+            const btnCombined     = document.getElementById('g2-btn-combined');
+            const btnSeparate     = document.getElementById('g2-btn-separate');
+            if (combined) {
+                combinedSection.style.display = '';
+                separateSection.style.display = 'none';
+                btnCombined.className = 'px-3 py-2 rounded-xl text-sm font-semibold shadow bg-violet-600 text-white';
+                btnSeparate.className = 'px-3 py-2 rounded-xl text-sm font-semibold shadow bg-slate-100 text-slate-600 hover:bg-slate-200';
+            } else {
+                combinedSection.style.display = 'none';
+                separateSection.style.display = '';
+                btnCombined.className = 'px-3 py-2 rounded-xl text-sm font-semibold shadow bg-slate-100 text-slate-600 hover:bg-slate-200';
+                btnSeparate.className = 'px-3 py-2 rounded-xl text-sm font-semibold shadow bg-violet-600 text-white';
+            }
+            refreshIfCalculated();
         }
 
         function toggleDirectMode(semesterId) {
@@ -795,7 +845,19 @@
 
             const semRes = {};
             let totalGeneral = 0;
+
+            // 2학년 전체 직접 입력 처리
+            let g2CombinedScore = 0;
+            if (g2CombinedMode) {
+                const g2el = document.getElementById("g2-combined-score");
+                g2CombinedScore = clamp(parseFloat(g2el?.value) || 0, 0, 48);
+                totalGeneral += g2CombinedScore;
+                semRes["g2_1"] = { count:0, avgGrade:0, avgScore:0, score:0, isDirect:true, isG2Combined:true };
+                semRes["g2_2"] = { count:0, avgGrade:0, avgScore:0, score:0, isDirect:true, isG2Combined:true };
+            }
+
             semesterOrder.forEach(id => {
+                if (g2CombinedMode && (id === "g2_1" || id === "g2_2")) return;
                 let avg, sc;
                 if (directMode[id]) {
                     sc  = getDirectScore(id);
@@ -852,16 +914,39 @@
             updateProgressBar("barNonCalc",  "barTextNonCalc",  totalNonCalc,  50);
 
             /* 상세 – 일반교과 */
-            document.getElementById("detailGeneral").innerHTML =
-                semesterOrder.map(id => {
+            // detailGeneral 생성 (g2CombinedMode 분기 포함)
+            const g2CombinedCard = g2CombinedMode
+                ? `<div class="rounded-xl border border-violet-200 p-4 bg-violet-50">
+                    <div class="flex items-center justify-between gap-3 mb-2">
+                      <div class="font-semibold text-violet-900">2학년 (1·2학기 통합)</div>
+                      <div class="text-xs px-2 py-1 rounded-full bg-violet-100 border border-violet-200 text-violet-700">직접 입력</div>
+                    </div>
+                    <div class="formula-box text-violet-800">직접 입력: <span class="font-bold">${fmt(g2CombinedScore)} / 48점</span></div>
+                  </div>`
+                : "";
+            const detailItems = semesterOrder
+                .filter(id => !(g2CombinedMode && (id === "g2_1" || id === "g2_2")))
+                .map(id => {
                     const m = semesterMeta[id];
                     const r = semRes[id];
                     if (r.isDirect) return `<div class="rounded-xl border border-amber-200 p-4 bg-amber-50"><div class="flex items-center justify-between gap-3 mb-2"><div class="font-semibold text-amber-900">${m.title}</div><div class="text-xs px-2 py-1 rounded-full bg-amber-100 border border-amber-200 text-amber-700">직접 입력</div></div><div class="formula-box text-amber-800">직접 입력: <span class="font-bold">${fmt(r.score)} / ${m.max}점</span></div></div>`;
                     return buildGeneralDetail(m.title, m.base, r.avgGrade, m.gradeMultiplier, r.avgScore, m.scoreMultiplier, r.score, m.max, r.count);
-                }).join("") +
+                }).join("");
+            const formulaScores = g2CombinedMode
+                ? semesterOrder.filter(id => id !== "g2_1" && id !== "g2_2").map(id => fmt(semRes[id].score))
+                      .reduce((a, v, i, arr) => {
+                          if (i === 1) return [a, `${fmt(g2CombinedScore)}(2학년)`, v];
+                          return [...a, v];
+                      }, semesterOrder.filter(id => id !== "g2_1" && id !== "g2_2").map(id => fmt(semRes[id].score))[0])
+                : semesterOrder.map(id => fmt(semRes[id].score));
+            const formulaStr = g2CombinedMode
+                ? [fmt(semRes["g1_2"].score), `${fmt(g2CombinedScore)}`, fmt(semRes["g3_1"].score), fmt(semRes["g3_2"].score)].join(" + ")
+                : semesterOrder.map(id => fmt(semRes[id].score)).join(" + ");
+            document.getElementById("detailGeneral").innerHTML =
+                detailItems + g2CombinedCard +
                 `<div class="rounded-xl border border-indigo-200 p-4 bg-indigo-50">
                     <div class="font-semibold text-indigo-950 mb-1">일반교과 총합</div>
-                    <div class="formula-box text-indigo-900">${semesterOrder.map(id => fmt(semRes[id].score)).join(" + ")}\\n= <span class="font-bold">${fmt(totalGeneral)}점</span></div>
+                    <div class="formula-box text-indigo-900">${formulaStr}\n= <span class="font-bold">${fmt(totalGeneral)}점</span></div>
                 </div>`;
 
             /* 상세 – 체육예술/비교과 */
@@ -1215,9 +1300,10 @@
             initDefaultSubjects();
             toggleBongsaField();
 
-            // 중3(2027) 기본값: 1-2, 2-1, 2-2 직접 입력 모드
+            // 중3(2027) 기본값: 1-2 직접 입력 + 2학년 전체 입력 모드
             if (document.getElementById("targetYear").value === "2027") {
-                ["g1_2", "g2_1", "g2_2"].forEach(id => toggleDirectMode(id));
+                toggleDirectMode("g1_2");
+                // g2CombinedMode는 이미 true가 기본값 (toggleG2Mode 불필요)
             }
 
             semesterOrder.forEach(id => updateSemesterStats(id));
@@ -1235,7 +1321,7 @@
   /* ── 플로팅 버튼 ── */
   #sdbot-btn {
     position: fixed; bottom: 24px; right: 24px; z-index: 9999;
-    width: 80px; height: 80px;
+    width: 93px; height: 168px;
     cursor: pointer; border: none; background: transparent; padding: 0;
     filter: drop-shadow(0 4px 10px rgba(0,0,0,0.3));
     transition: transform 0.15s;
@@ -1245,25 +1331,26 @@
 
   /* ── 스프라이트 ── */
   .sdbot-sprite {
-    width: 80px; height: 80px;
+    width: 93px; height: 168px;
     background-image: url('./assets/chatbot.png');
-    background-size: 320px 160px;   /* 500→320 scale (×0.64) */
+    background-size: 370px 670px;
     background-repeat: no-repeat;
     image-rendering: pixelated;
+    overflow: hidden;
   }
-  /* 포즈 클래스 */
-  .sdbot-pose-normal  { background-position:   0px    0px; }
-  .sdbot-pose-think   { background-position: -80px    0px; }
-  .sdbot-pose-laptop  { background-position:-160px    0px; }
-  .sdbot-pose-nervous { background-position:-240px    0px; }
-  .sdbot-pose-happy   { background-position:   0px  -80px; }
-  .sdbot-pose-wow     { background-position: -80px  -80px; }
-  .sdbot-pose-sleep   { background-position:-160px  -80px; }
-  .sdbot-pose-yawn    { background-position:-240px  -80px; }
+  /* 포즈 클래스 (background-size: 370px 670px → sprite: 92.5×335) */
+  .sdbot-pose-normal  { background-position:    0px     0px; }
+  .sdbot-pose-think   { background-position:  -93px     0px; }
+  .sdbot-pose-laptop  { background-position: -185px     0px; }
+  .sdbot-pose-nervous { background-position: -278px     0px; }
+  .sdbot-pose-happy   { background-position:    0px  -335px; }
+  .sdbot-pose-wow     { background-position:  -93px  -335px; }
+  .sdbot-pose-sleep   { background-position: -185px  -335px; }
+  .sdbot-pose-yawn    { background-position: -278px  -335px; }
 
   /* ── 채팅창 ── */
   #sdbot-window {
-    position: fixed; bottom: 116px; right: 24px; z-index: 9998;
+    position: fixed; bottom: 204px; right: 24px; z-index: 9998;
     width: 320px; max-height: 480px;
     background: #fff; border-radius: 16px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.18);
@@ -1285,15 +1372,15 @@
     padding: 12px 16px; display: flex; align-items: center; gap: 10px;
     color: #fff; flex-shrink: 0;
   }
-  #sdbot-header .sdbot-sprite { width:48px; height:48px; background-size:192px 96px; }
-  #sdbot-header-pose-normal  { background-position:   0px   0px; }
-  #sdbot-header-pose-think   { background-position: -48px   0px; }
-  #sdbot-header-pose-laptop  { background-position:-96px    0px; }
-  #sdbot-header-pose-nervous { background-position:-144px   0px; }
-  #sdbot-header-pose-happy   { background-position:   0px  -48px; }
-  #sdbot-header-pose-wow     { background-position: -48px  -48px; }
-  #sdbot-header-pose-sleep   { background-position: -96px  -48px; }
-  #sdbot-header-pose-yawn    { background-position:-144px  -48px; }
+  #sdbot-header .sdbot-sprite { width:46px; height:84px; background-size:185px 335px; }
+  #sdbot-header-pose-normal  { background-position:    0px     0px; }
+  #sdbot-header-pose-think   { background-position:  -46px     0px; }
+  #sdbot-header-pose-laptop  { background-position:  -93px     0px; }
+  #sdbot-header-pose-nervous { background-position: -139px     0px; }
+  #sdbot-header-pose-happy   { background-position:    0px  -168px; }
+  #sdbot-header-pose-wow     { background-position:  -46px  -168px; }
+  #sdbot-header-pose-sleep   { background-position:  -93px  -168px; }
+  #sdbot-header-pose-yawn    { background-position: -139px  -168px; }
 
   #sdbot-header-info { flex:1; }
   #sdbot-header-info .name { font-weight:700; font-size:14px; }
@@ -1342,7 +1429,7 @@
 
   /* 말풍선 알림 (챗창 닫혀있을 때) */
   #sdbot-bubble {
-    position:fixed; bottom:112px; right:24px; z-index:9997;
+    position:fixed; bottom:200px; right:24px; z-index:9997;
     background:#4f46e5; color:#fff; border-radius:12px 12px 4px 12px;
     padding:8px 14px; font-size:12px; font-weight:600;
     box-shadow:0 4px 14px rgba(79,70,229,.4);
@@ -1365,7 +1452,7 @@
 <div id="sdbot-window">
   <div id="sdbot-header">
     <div class="sdbot-sprite sdbot-pose-happy" id="sdbot-header-sprite"
-         style="background-size:192px 96px;"></div>
+         style="background-size:185px 335px;"></div>
     <div id="sdbot-header-info">
       <div class="name">SD정우쌤</div>
       <div class="sub">경기도 비평준화 입시 도우미</div>
@@ -1393,13 +1480,13 @@
   /* ── 헤더 스프라이트 포즈 맵 (48px 기준) ── */
   const HEADER_POSES = {
     normal :  '0px 0px',
-    think  : '-48px 0px',
-    laptop : '-96px 0px',
-    nervous: '-144px 0px',
-    happy  : '0px -48px',
-    wow    : '-48px -48px',
-    sleep  : '-96px -48px',
-    yawn   : '-144px -48px',
+    think  : '-46px 0px',
+    laptop : '-93px 0px',
+    nervous: '-139px 0px',
+    happy  : '0px -168px',
+    wow    : '-46px -168px',
+    sleep  : '-93px -168px',
+    yawn   : '-139px -168px',
   };
 
   function setPose(pose) {
